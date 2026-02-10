@@ -8,10 +8,14 @@ interface ExcelUploadProps {
 
 export default function ExcelUpload({ onUpload }: ExcelUploadProps) {
   const [error, setError] = useState<string | null>(null);
+  const [fileName, setFileName] = useState<string | null>(null);
+  const [assetCount, setAssetCount] = useState(0);
 
   const onDrop = useCallback(
     async (acceptedFiles: File[]) => {
       setError(null);
+      setFileName(null);
+      setAssetCount(0);
       const file = acceptedFiles[0];
       if (!file) return;
 
@@ -21,6 +25,8 @@ export default function ExcelUpload({ onUpload }: ExcelUploadProps) {
           setError("No asset IDs found in the file");
           return;
         }
+        setFileName(file.name);
+        setAssetCount(ids.length);
         onUpload(ids);
       } catch {
         setError("Failed to parse the Excel file");
@@ -55,13 +61,28 @@ export default function ExcelUpload({ onUpload }: ExcelUploadProps) {
         }}
       >
         <input {...getInputProps()} />
-        <p style={{ margin: 0, fontSize: "14px", color: "#666" }}>
+        <p
+          style={{
+            margin: 0,
+            fontSize: "14px",
+            color: fileName ? "#333" : "#666",
+            fontWeight: fileName ? 500 : 400,
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+            maxWidth: "100%",
+          }}
+        >
           {isDragActive
             ? "Drop the file here"
-            : "Drag & drop an Excel file here, or click to browse"}
+            : fileName
+              ? fileName
+              : "Drag & drop an Excel file here, or click to browse"}
         </p>
         <p style={{ margin: "4px 0 0", fontSize: "12px", color: "#999" }}>
-          .xls, .xlsx
+          {fileName
+            ? `${assetCount} asset${assetCount !== 1 ? "s" : ""} found — click or drop to replace`
+            : ".xls, .xlsx"}
         </p>
       </div>
       {error && (

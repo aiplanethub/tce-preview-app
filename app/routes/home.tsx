@@ -52,6 +52,7 @@ export default function Home() {
   };
 
   const handleExcelUpload = (ids: string[]) => {
+    setAssetId("");
     setBatchAssetIds(ids);
     setSearchParams({});
   };
