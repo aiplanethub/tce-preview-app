@@ -1,11 +1,12 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { Route } from "./+types/home";
 import { Outlet, useNavigate, useLocation, useMatches } from "react-router";
 import { ensureAuthenticated, logout } from "~/lib/auth";
 import { useBatchAssetData } from "~/lib/tce-queries";
 import VideoPlayerSkeleton from "~/components/VideoPlayerSkeleton";
-import ExcelUpload from "~/components/ExcelUpload";
 import AssetGrid from "~/components/AssetGrid";
+
+type Manifest = Record<string, { name: string; path: string }[]>;
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -22,8 +23,38 @@ export async function clientLoader() {
 export default function Home() {
   const navigate = useNavigate();
   const location = useLocation();
-  const [assetId, setAssetId] = useState("");
   const [batchAssetIds, setBatchAssetIds] = useState<string[]>([]);
+  const [manifest, setManifest] = useState<Manifest | null>(null);
+  const [selectedGrade, setSelectedGrade] = useState("");
+  const [selectedFile, setSelectedFile] = useState("");
+  const [fileLoading, setFileLoading] = useState(false);
+
+  useEffect(() => {
+    fetch("/azvasa/manifest.json")
+      .then((r) => r.json())
+      .then((data: Manifest) => setManifest(data))
+      .catch(() => setManifest(null));
+  }, []);
+
+  const grades = manifest
+    ? Object.keys(manifest).sort((a, b) => Number(a) - Number(b))
+    : [];
+  const filesForGrade =
+    selectedGrade && manifest ? (manifest[selectedGrade] ?? []) : [];
+
+  const handleFileSelect = async (filePath: string) => {
+    setSelectedFile(filePath);
+    setFileLoading(true);
+    try {
+      const resp = await fetch(filePath);
+      const ids: string[] = await resp.json();
+      setBatchAssetIds(ids);
+    } catch {
+      setBatchAssetIds([]);
+    } finally {
+      setFileLoading(false);
+    }
+  };
 
   const {
     data: batchData,
@@ -41,27 +72,10 @@ export default function Home() {
   // Hide layout when asset route is active without grid context (direct nav / refresh)
   const showLayoutContent = !isAssetRoute || (fromGrid && !!batchData);
 
-  const handleSubmit = () => {
-    const trimmedId = assetId.trim();
-    if (!trimmedId) return;
-    navigate(`/${trimmedId}`);
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") {
-      handleSubmit();
-    }
-  };
-
   const onAssetSelect = (asset: TCEAsset) =>
     navigate(`/${asset.assetId}`, {
       state: { fromGrid: true },
     });
-
-  const handleExcelUpload = (ids: string[]) => {
-    setAssetId("");
-    setBatchAssetIds(ids);
-  };
 
   const showIdleState = !batchData && !isBatchLoading;
 
@@ -114,33 +128,78 @@ export default function Home() {
         <h1 style={{ margin: 0, fontSize: "20px", fontWeight: 600 }}>
           Preview TCE Assets
         </h1>
-        <input
-          type="text"
-          value={assetId}
-          onChange={(e) => setAssetId(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="Enter Asset ID"
-          style={{
-            padding: "10px 16px",
-            fontSize: "16px",
-            border: "1px solid #ccc",
-            borderRadius: "6px",
-            width: "320px",
-            outline: "none",
-          }}
-        />
-        <span style={{ fontSize: "13px", color: "#888" }}>
-          {isBatchLoading ? (
-            "Loading..."
-          ) : batchError ? (
-            <span style={{ color: "red" }}>{batchError.message}</span>
-          ) : (
-            <>
-              Press <strong>Enter</strong> to load player
-            </>
-          )}
-        </span>
-        <ExcelUpload onUpload={handleExcelUpload} />
+
+        {manifest && grades.length > 0 && (
+          <div
+            style={{
+              display: "flex",
+              gap: "8px",
+              alignItems: "center",
+              marginTop: "8px",
+            }}
+          >
+            <select
+              value={selectedGrade}
+              onChange={(e) => {
+                setSelectedGrade(e.target.value);
+                setSelectedFile("");
+              }}
+              style={{
+                padding: "8px 12px",
+                fontSize: "14px",
+                border: "1px solid #ccc",
+                borderRadius: "6px",
+                outline: "none",
+              }}
+            >
+              <option value="">Select Grade</option>
+              {grades.map((g) => (
+                <option key={g} value={g}>
+                  Grade {g}
+                </option>
+              ))}
+            </select>
+
+            {filesForGrade.length > 0 && (
+              <select
+                value={selectedFile}
+                onChange={(e) => handleFileSelect(e.target.value)}
+                style={{
+                  padding: "8px 12px",
+                  fontSize: "14px",
+                  border: "1px solid #ccc",
+                  borderRadius: "6px",
+                  outline: "none",
+                  maxWidth: "320px",
+                }}
+              >
+                <option value="">Select Book</option>
+                {filesForGrade.map((f) => (
+                  <option key={f.path} value={f.path}>
+                    {f.name}
+                  </option>
+                ))}
+              </select>
+            )}
+
+            {fileLoading && (
+              <span style={{ fontSize: "13px", color: "#888" }}>
+                Loading...
+              </span>
+            )}
+          </div>
+        )}
+
+        {isBatchLoading && (
+          <span style={{ fontSize: "13px", color: "#888" }}>
+            Loading assets...
+          </span>
+        )}
+        {batchError && (
+          <span style={{ fontSize: "13px", color: "red" }}>
+            {batchError.message}
+          </span>
+        )}
       </div>
 
       <div style={{ flex: 1, overflow: "auto" }}>

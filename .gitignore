@@ -2,6 +2,10 @@
 .env
 /node_modules/
 
+# Generated JSON from Excel files
+public/azvasa/**/*.json
+public/azvasa/manifest.json
+
 # React Router
 /.react-router/
 /build/
