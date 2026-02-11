@@ -3,6 +3,7 @@ import {
   useParams,
   useNavigate,
   useLocation,
+  useSearchParams,
   useOutletContext,
 } from "react-router";
 import { redirectToLogin, logout } from "~/lib/auth";
@@ -31,6 +32,7 @@ export default function Asset() {
   const { assetId: paramAssetId } = useParams<{ assetId: string }>();
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
   const { batchData } = useOutletContext<OutletContextType>();
   const fromGrid = location.state?.fromGrid === true;
 
@@ -66,7 +68,7 @@ export default function Asset() {
         accessToken={batchData.accessToken}
         expiryTime={batchData.expiryTime}
         expiresIn={batchData.expiresIn}
-        onClose={() => navigate("/")}
+        onClose={() => navigate(`/?${searchParams.toString()}`)}
       />
     );
   }

@@ -1,6 +1,12 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import type { Route } from "./+types/home";
-import { Outlet, useNavigate, useLocation, useMatches } from "react-router";
+import {
+  Outlet,
+  useNavigate,
+  useLocation,
+  useMatches,
+  useSearchParams,
+} from "react-router";
 import { ensureAuthenticated, logout } from "~/lib/auth";
 import { useBatchAssetData } from "~/lib/tce-queries";
 import VideoPlayerSkeleton from "~/components/VideoPlayerSkeleton";
@@ -23,11 +29,13 @@ export async function clientLoader() {
 export default function Home() {
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [batchAssetIds, setBatchAssetIds] = useState<string[]>([]);
   const [manifest, setManifest] = useState<Manifest | null>(null);
-  const [selectedGrade, setSelectedGrade] = useState("");
-  const [selectedFile, setSelectedFile] = useState("");
   const [fileLoading, setFileLoading] = useState(false);
+
+  const selectedGrade = searchParams.get("grade") ?? "";
+  const selectedFile = searchParams.get("book") ?? "";
 
   useEffect(() => {
     fetch("/azvasa/manifest.json")
@@ -42,8 +50,7 @@ export default function Home() {
   const filesForGrade =
     selectedGrade && manifest ? (manifest[selectedGrade] ?? []) : [];
 
-  const handleFileSelect = async (filePath: string) => {
-    setSelectedFile(filePath);
+  const loadAssetIds = useCallback(async (filePath: string) => {
     setFileLoading(true);
     try {
       const resp = await fetch(filePath);
@@ -53,6 +60,25 @@ export default function Home() {
       setBatchAssetIds([]);
     } finally {
       setFileLoading(false);
+    }
+  }, []);
+
+  // Auto-load when book param is present (e.g. on page load / shared URL)
+  useEffect(() => {
+    if (selectedFile) {
+      loadAssetIds(selectedFile);
+    }
+  }, [selectedFile, loadAssetIds]);
+
+  const handleGradeChange = (grade: string) => {
+    setSearchParams(grade ? { grade } : {});
+  };
+
+  const handleBookChange = (book: string) => {
+    if (book) {
+      setSearchParams({ grade: selectedGrade, book });
+    } else {
+      setSearchParams({ grade: selectedGrade });
     }
   };
 
@@ -73,7 +99,7 @@ export default function Home() {
   const showLayoutContent = !isAssetRoute || (fromGrid && !!batchData);
 
   const onAssetSelect = (asset: TCEAsset) =>
-    navigate(`/${asset.assetId}`, {
+    navigate(`/${asset.assetId}?${searchParams.toString()}`, {
       state: { fromGrid: true },
     });
 
@@ -140,10 +166,7 @@ export default function Home() {
           >
             <select
               value={selectedGrade}
-              onChange={(e) => {
-                setSelectedGrade(e.target.value);
-                setSelectedFile("");
-              }}
+              onChange={(e) => handleGradeChange(e.target.value)}
               style={{
                 padding: "8px 12px",
                 fontSize: "14px",
@@ -163,7 +186,7 @@ export default function Home() {
             {filesForGrade.length > 0 && (
               <select
                 value={selectedFile}
-                onChange={(e) => handleFileSelect(e.target.value)}
+                onChange={(e) => handleBookChange(e.target.value)}
                 style={{
                   padding: "8px 12px",
                   fontSize: "14px",

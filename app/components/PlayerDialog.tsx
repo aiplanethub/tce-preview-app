@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import TCEPlayer from "~/components/TCEPlayer";
+import CurriculumFilters from "~/components/CurriculumFilters";
 
 interface PlayerDialogProps {
   asset: TCEAsset;
@@ -83,6 +84,7 @@ export default function PlayerDialog({
             &times;
           </button>
         </div>
+        <CurriculumFilters assetId={asset.assetId} />
         <div style={{ flex: 1, overflow: "hidden" }}>
           <TCEPlayer
             accessToken={accessToken}
