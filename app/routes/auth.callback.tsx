@@ -29,6 +29,7 @@ export default function AuthCallback() {
         );
 
         sessionStorage.setItem("token", response.data.accessToken);
+        sessionStorage.setItem("refreshToken", response.data.refreshToken);
         navigate("/");
       } catch (err) {
         if (axios.isAxiosError(err)) {

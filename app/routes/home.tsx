@@ -1,13 +1,11 @@
 import { useState } from "react";
 import type { Route } from "./+types/home";
-import { useSearchParams } from "react-router";
-import { redirectToLogin } from "~/lib/auth";
-import { useTCEPlayerData, useBatchAssetData } from "~/lib/tce-queries";
-import TCEPlayer from "~/components/TCEPlayer";
+import { Outlet, useNavigate, useLocation, useMatches } from "react-router";
+import { ensureAuthenticated, logout } from "~/lib/auth";
+import { useBatchAssetData } from "~/lib/tce-queries";
 import VideoPlayerSkeleton from "~/components/VideoPlayerSkeleton";
 import ExcelUpload from "~/components/ExcelUpload";
 import AssetGrid from "~/components/AssetGrid";
-import PlayerDialog from "~/components/PlayerDialog";
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -17,32 +15,36 @@ export function meta({}: Route.MetaArgs) {
 }
 
 export async function clientLoader() {
-  if (!sessionStorage.getItem("token")) {
-    redirectToLogin();
-  }
-  return null;
+  const userInfo = await ensureAuthenticated();
+  return userInfo;
 }
 
 export default function Home() {
-  const [searchParams, setSearchParams] = useSearchParams();
-  const submittedId = searchParams.get("assetId") || "";
-  const [assetId, setAssetId] = useState(submittedId);
-
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [assetId, setAssetId] = useState("");
   const [batchAssetIds, setBatchAssetIds] = useState<string[]>([]);
-  const [selectedAsset, setSelectedAsset] = useState<TCEAsset | null>(null);
 
-  const { data: playerData, isLoading, error } = useTCEPlayerData(submittedId);
   const {
     data: batchData,
     isLoading: isBatchLoading,
     error: batchError,
   } = useBatchAssetData(batchAssetIds);
 
+  // Check if we're on /:assetId from grid (dialog mode) vs direct navigation
+  const fromGrid = location.state?.fromGrid === true;
+  const matches = useMatches();
+  // If any match has params.assetId, we're on the asset child route
+  const isAssetRoute = matches.some((m) => "assetId" in m.params);
+
+  // Show layout content on index route, or on asset route when navigated from grid (dialog overlay)
+  // Hide layout when asset route is active without grid context (direct nav / refresh)
+  const showLayoutContent = !isAssetRoute || (fromGrid && !!batchData);
+
   const handleSubmit = () => {
     const trimmedId = assetId.trim();
     if (!trimmedId) return;
-    setBatchAssetIds([]);
-    setSearchParams({ assetId: trimmedId });
+    navigate(`/${trimmedId}`);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -51,14 +53,31 @@ export default function Home() {
     }
   };
 
+  const onAssetSelect = (asset: TCEAsset) =>
+    navigate(`/${asset.assetId}`, {
+      state: { fromGrid: true },
+    });
+
   const handleExcelUpload = (ids: string[]) => {
     setAssetId("");
     setBatchAssetIds(ids);
-    setSearchParams({});
   };
 
-  const showIdleState =
-    !playerData && !isLoading && !batchData && !isBatchLoading;
+  const showIdleState = !batchData && !isBatchLoading;
+
+  if (!showLayoutContent) {
+    return <Outlet context={{ batchData }} />;
+  }
+
+  const navButtonStyle: React.CSSProperties = {
+    background: "none",
+    border: "1px solid #ddd",
+    borderRadius: "6px",
+    padding: "6px 12px",
+    fontSize: "13px",
+    cursor: "pointer",
+    color: "#555",
+  };
 
   return (
     <div
@@ -71,6 +90,20 @@ export default function Home() {
       <div
         style={{
           display: "flex",
+          gap: "8px",
+          padding: "12px 16px",
+        }}
+      >
+        <button style={navButtonStyle} onClick={() => navigate("/")}>
+          Home
+        </button>
+        <button style={navButtonStyle} onClick={logout}>
+          Logout
+        </button>
+      </div>
+      <div
+        style={{
+          display: "flex",
           flexDirection: "column",
           alignItems: "center",
           gap: "8px",
@@ -79,7 +112,7 @@ export default function Home() {
         }}
       >
         <h1 style={{ margin: 0, fontSize: "20px", fontWeight: 600 }}>
-          Preview TCE Asset
+          Preview TCE Assets
         </h1>
         <input
           type="text"
@@ -87,7 +120,6 @@ export default function Home() {
           onChange={(e) => setAssetId(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="Enter Asset ID"
-          disabled={isLoading}
           style={{
             padding: "10px 16px",
             fontSize: "16px",
@@ -98,10 +130,8 @@ export default function Home() {
           }}
         />
         <span style={{ fontSize: "13px", color: "#888" }}>
-          {isLoading || isBatchLoading ? (
+          {isBatchLoading ? (
             "Loading..."
-          ) : error ? (
-            <span style={{ color: "red" }}>{error.message}</span>
           ) : batchError ? (
             <span style={{ color: "red" }}>{batchError.message}</span>
           ) : (
@@ -114,7 +144,7 @@ export default function Home() {
       </div>
 
       <div style={{ flex: 1, overflow: "auto" }}>
-        {(isLoading || isBatchLoading) && !playerData && !batchData && (
+        {isBatchLoading && !batchData && (
           <div
             style={{
               display: "flex",
@@ -128,29 +158,12 @@ export default function Home() {
           </div>
         )}
 
-        {playerData && (
-          <TCEPlayer
-            accessToken={playerData.accessToken}
-            expiryTime={playerData.expiryTime}
-            expiresIn={playerData.expiresIn}
-            asset={playerData.asset}
-          />
-        )}
-
         {batchData && batchData.assets.length > 0 && (
-          <AssetGrid assets={batchData.assets} onSelect={setSelectedAsset} />
+          <AssetGrid assets={batchData.assets} onSelect={onAssetSelect} />
         )}
       </div>
 
-      {selectedAsset && batchData && (
-        <PlayerDialog
-          asset={selectedAsset}
-          accessToken={batchData.accessToken}
-          expiryTime={batchData.expiryTime}
-          expiresIn={batchData.expiresIn}
-          onClose={() => setSelectedAsset(null)}
-        />
-      )}
+      <Outlet context={{ batchData }} />
     </div>
   );
 }
