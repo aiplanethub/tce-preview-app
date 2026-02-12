@@ -1,10 +1,11 @@
 import axios from "axios";
+import { env } from "./env";
 
 export function redirectToLogin() {
   const params = new URLSearchParams();
   params.set("client", "TCE-TEST-APP");
   params.set("redirectUri", `${window.location.origin}/auth/callback`);
-  window.location.href = `${import.meta.env.VITE_LOGIN_BASE_URL}/#/login/?${params.toString()}`;
+  window.location.href = `${env.login_url}/#/login/?${params.toString()}`;
 }
 
 export function logout() {
@@ -16,7 +17,7 @@ export function logout() {
 export async function validateToken(): Promise<TokenValidateResponse> {
   const token = sessionStorage.getItem("token");
   const response = await axios.get<TokenValidateResponse>(
-    `${import.meta.env.VITE_API_URL}/v1/api/user/oauth/token/validate`,
+    `${env.api_url}/v1/api/user/oauth/token/validate`,
     {
       headers: {
         Authorization: `Bearer ${token}`,
@@ -33,7 +34,7 @@ export async function refreshAccessToken(): Promise<string> {
   }
 
   const response = await axios.post<TokenRefreshResponse>(
-    `${import.meta.env.VITE_API_URL}/v1/api/user/oauth/token/refresh`,
+    `${env.api_url}/v1/api/user/oauth/token/refresh`,
     { refresh_token: refreshToken },
   );
 

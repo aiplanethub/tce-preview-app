@@ -1,4 +1,5 @@
 import axios from "axios";
+import { env } from "./env";
 
 const getErrorMessage = (error: any) => {
   if (axios.isAxiosError(error)) {
@@ -25,7 +26,7 @@ function setCookiesInBrowser(cookies: Record<string, CookieConfig>) {
 export async function fetchClientId(): Promise<ClientId | undefined> {
   try {
     const response = await axios.get<ApiResponse<ClientIdData>>(
-      `${import.meta.env.VITE_API_URL}/v1/api/user/tceplayer/clientid`,
+      `${env.api_url}/v1/api/user/tceplayer/clientid`,
       {
         headers: {
           "Content-Type": "application/json",
@@ -53,7 +54,7 @@ export async function fetchToken(): Promise<TokenData | undefined> {
     params.append("user_name", "sunil");
 
     const response = await axios.post<ApiResponse<TokenData>>(
-      `${import.meta.env.VITE_API_URL}/v1/api/user/tceplayer/token`,
+      `${env.api_url}/v1/api/user/tceplayer/token`,
       params,
       {
         headers: {
@@ -101,7 +102,7 @@ export async function fetchTCEAssetDetails(ids: string[], accessToken: string) {
     params.append("accessToken", accessToken);
 
     const response = await axios.post(
-      `${import.meta.env.VITE_API_URL}/v1/api/user/tceplayer/assets`,
+      `${env.api_url}/v1/api/user/tceplayer/assets`,
       params,
       {
         headers: {
@@ -133,7 +134,7 @@ export async function fetchMultipleTCEAssetDetails(
     params.append("accessToken", accessToken);
 
     const response = await axios.post(
-      `${import.meta.env.VITE_API_URL}/v1/api/user/tceplayer/assets`,
+      `${env.api_url}/v1/api/user/tceplayer/assets`,
       params,
       {
         headers: {

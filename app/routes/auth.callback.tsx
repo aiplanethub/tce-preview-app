@@ -1,4 +1,5 @@
 import axios from "axios";
+import { env } from "~/lib/env";
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { redirectToLogin } from "~/lib/auth";
@@ -19,7 +20,7 @@ export default function AuthCallback() {
     const exchangeToken = async () => {
       try {
         const response = await axios.post<OAuthTokenResponse>(
-          `${import.meta.env.VITE_API_URL}/v1/api/user/oauth/token`,
+          `${env.api_url}/v1/api/user/oauth/token`,
           {
             code,
             clientId: "TCE-TEST-APP",
